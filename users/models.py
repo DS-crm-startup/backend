@@ -8,6 +8,7 @@ class UserRole(models.TextChoices):
     Librarian="Librarian",'Librarian'
 
 class CustomUser(AbstractUser):
+    username = None
     first_name = models.CharField(verbose_name="First Name", max_length=100)
     last_name = models.CharField(max_length=100,verbose_name="Last Name" )
     phone_number = models.CharField(unique=True,max_length=13)
