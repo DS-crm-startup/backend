@@ -10,7 +10,7 @@ class UserRole(models.TextChoices):
 class CustomUser(AbstractUser):
     first_name = models.CharField(verbose_name="First Name", max_length=100)
     last_name = models.CharField(max_length=100,verbose_name="Last Name" )
-    phone_number = models.CharField(unique=True,max_length=12)
+    phone_number = models.CharField(unique=True,max_length=13)
     email = models.EmailField(unique=True,max_length=100)
     address=models.TextField(null=True, blank=True)
     image = models.ImageField(upload_to="users/images/", null=True, blank=True)

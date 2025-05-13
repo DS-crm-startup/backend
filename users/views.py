@@ -1,22 +1,16 @@
-from django.shortcuts import render
-
-# Create your views here.
 import random
 from django.core.mail import send_mail
-from decouple import config
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.generics import  RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-
 from users.serializer import RegisterSerializer, UserUpdateSerializer
-
 User = get_user_model()
-
-
 # Create your views here.
 
 # class CustomTokenObtainPairView(TokenObtainPairView):
@@ -57,6 +51,8 @@ User = get_user_model()
 #         except:
 #             return Response({'success': False}, status=400)
 
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def logout(request):
@@ -74,67 +70,116 @@ def logout(request):
         return Response({"error": str(e)}, status=400)
 
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def register(request):
-    email = request.data.get('email')
+class RegisterView(APIView):
+    permission_classes = [AllowAny]
 
-    if not email:
-        return Response({"message": "Email topilmadi."}, status=400)
+    def post(self, request):
+        email = request.data.get('email')
+        phone_number = request.data.get('phone_number')
 
-    otp = str(random.randint(10000, 99999))
-    cache.set(f"otp_{email}", otp, timeout=300)
+        if not email:
+            return Response({"message": "Email topilmadi."}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(email=email).exists():
+            return Response(
+                {"error": "Bu email allaqachon ro'yxatdan o'tgan."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-    if not send_otp_via_email(email, otp):
-        return Response({"message": "Email yuborishda xatolik yuz berdi."}, status=500)
+        if User.objects.filter(phone_number=phone_number).exists():
+            return Response(
+                {"error": "Bu telefon raqam allaqachon ro'yxatdan o'tgan."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        otp = str(random.randint(10000, 99999))
+        cache.set(f"otp_{email}", otp, timeout=300)
 
-    return Response({"message": "OTP muvaffaqiyatli yuborildi"}, status=200)
+        if not send_otp_via_email(email, otp):
+            return Response({"message": "Email yuborishda xatolik yuz berdi."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+        return Response({"message": "OTP muvaffaqiyatli yuborildi"}, status=status.HTTP_200_OK)
 
 def send_otp_via_email(email, otp):
-    return send_mail(
-        "Tasdiqlash kodingiz",
-        f"Sizning OTP kodingiz: {otp}",
-        "from@example.com",
-        [email],
-        fail_silently=False,
-    )
+    subject = "Tasdiqlash kodingiz"
+    message = f"Sizning tasdiqlash kodingiz: {otp}"
+    from_email = 'your_email@gmail.com'  # Same email as in settings
+    try:
+        send_mail(subject, message, from_email, [email])
+        return True
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return False
 
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def verify_otp_and_register(request):
-    email = request.data.get('email')
-    otp = request.data.get('otp')
 
-    if not email or not otp:
-        return Response({"error": "Email va OTP talab qilinadi"}, status=400)
 
-    cached_otp = cache.get(f"otp_{email}")
+class VerifyOTPAndRegisterView(APIView):
+    permission_classes = [AllowAny]
 
-    if cached_otp is None:
-        return Response({"message": "Siz 5 daqiqa ichida kodni kiritishingiz lozim edi."}, status=400)
+    def post(self, request):
+        email = request.data.get('email')
+        otp = request.data.get('otp')
 
-    if cached_otp != otp:
-        return Response({"message": "Xato kod terdingiz."}, status=400)
 
-    user, created = User.objects.get_or_create(email=email)
+        if not email or not otp :
+            return Response(
+                {"error": "Email, telefon raqam va OTP talab qilinadi."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-    if created:
-        serializer = RegisterSerializer(user, data={"email": email}, partial=True)
+        cached_otp = cache.get(f"otp_{email}")
+
+        if cached_otp is None:
+            return Response(
+                {"message": "Siz 5 daqiqa ichida kodni kiritishingiz lozim edi."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if cached_otp != otp:
+            return Response(
+                {"message": "Xato kod terdingiz."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+
+        serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            user = serializer.save()
         else:
-            return Response(serializer.errors, status=400)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    cache.delete(f"otp_{email}")
+        cache.delete(f"otp_{email}")
 
-    refresh = RefreshToken.for_user(user)
-    return Response({
-        "access_token": str(refresh.access_token),
-        "refresh_token": str(refresh)
-    }, status=200)
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            "access_token": str(refresh.access_token),
+            "refresh_token": str(refresh)
+        }, status=status.HTTP_200_OK)
 
+class LoginWithPhoneView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        phone_number = request.data.get('phone_number')
+        password = request.data.get('password')
+
+        if not phone_number or not password:
+            return Response({"error": "Telefon raqam va parol talab qilinadi."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(phone_number=phone_number)
+        except User.DoesNotExist:
+            return Response({"error": "Bunday foydalanuvchi topilmadi."}, status=status.HTTP_404_NOT_FOUND)
+
+        if not user.check_password(password):
+            return Response({"error": "Parol noto'g'ri."}, status=status.HTTP_400_BAD_REQUEST)
+
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            "access_token": str(refresh.access_token),
+            "refresh_token": str(refresh)
+        }, status=status.HTTP_200_OK)
 
 class UserProfileAPIView(RetrieveAPIView):
     serializer_class = UserUpdateSerializer
