@@ -151,7 +151,7 @@ class VerifyOTPAndRegisterView(APIView):
 
         if not email or not otp :
             return Response(
-                {"error": "Email, telefon raqam va OTP talab qilinadi."},
+                {"error": "Email va OTP talab qilinadi."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
