@@ -9,6 +9,12 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['last_name','first_name','phone_number','email','password']
+        extra_kwargs = {
+            'last_name': {'required': False},
+            'first_name': {'required': False},
+            'phone_number': {'required': False},
+            'email': {'required': False},
+        }
 
     def create(self, validated_data):
         password = validated_data.pop('password')
@@ -19,9 +25,10 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = User
-        fields = '__all__'
+        fields = ['first_name','last_name','phone_number','email','address','image','created_at','updated_at']
 
     def update(self, instance, validated_data):
         for attr, value in validated_data.items():

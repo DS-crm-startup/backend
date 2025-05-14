@@ -8,7 +8,11 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from users.serializer import RegisterSerializer, UserUpdateSerializer
 User = get_user_model()
 # Create your views here.
@@ -101,7 +105,7 @@ class RegisterView(APIView):
 def send_otp_via_email(email, otp):
     subject = "Tasdiqlash kodingiz"
     message = f"Sizning tasdiqlash kodingiz: {otp}"
-    from_email = 'your_email@gmail.com'  # Same email as in settings
+    from_email = settings.EMAIL_HOST_USER
     try:
         send_mail(subject, message, from_email, [email])
         return True
@@ -110,8 +114,33 @@ def send_otp_via_email(email, otp):
         return False
 
 
+class OtpSendViaEmail(APIView):
+    permission_classes = [AllowAny]
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({"message": "Email topilmadi."}, status=status.HTTP_400_BAD_REQUEST)
+        otp1 = str(random.randint(10000, 99999))
+        cache.set(f"otp_{email}", otp1, timeout=300)
+        if not send_otp_via_email(email, otp1):
+            return Response({"message": "Email yuborishda xatolik yuz berdi."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"message": "OTP muvaffaqiyatli yuborildi"}, status=status.HTTP_200_OK)
 
 
+class ResetPasswordCustomView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        user = request.user
+        password = request.data.get('password')
+
+        if not password:
+            return Response({'error': 'Password is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(password)
+        user.save()
+
+        return Response({'success': 'Password updated successfully'}, status=status.HTTP_200_OK)
 class VerifyOTPAndRegisterView(APIView):
     permission_classes = [AllowAny]
 
@@ -139,8 +168,16 @@ class VerifyOTPAndRegisterView(APIView):
                 {"message": "Xato kod terdingiz."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        cache.delete(f"otp_{email}")
 
+        user=User.objects.get(email=email)
+        if user:
 
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                "access_token": str(refresh.access_token),
+                "refresh_token": str(refresh)
+            }, status=status.HTTP_200_OK)
 
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
@@ -148,7 +185,6 @@ class VerifyOTPAndRegisterView(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        cache.delete(f"otp_{email}")
 
         refresh = RefreshToken.for_user(user)
         return Response({
