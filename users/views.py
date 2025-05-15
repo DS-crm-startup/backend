@@ -165,26 +165,19 @@ class VerifyOTPAndRegisterView(APIView):
 
         if cached_otp != otp:
             return Response(
-                {"message": "Xato kod terdingiz."},
+                {"message": "Xato kod kiritdingiz."},
                 status=status.HTTP_400_BAD_REQUEST
             )
         cache.delete(f"otp_{email}")
 
-        user=User.objects.get(email=email)
-        if user:
-
-            refresh = RefreshToken.for_user(user)
-            return Response({
-                "access_token": str(refresh.access_token),
-                "refresh_token": str(refresh)
-            }, status=status.HTTP_200_OK)
-
-        serializer = RegisterSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            serializer = RegisterSerializer(data=request.data)
+            if serializer.is_valid():
+                user = serializer.save()
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         refresh = RefreshToken.for_user(user)
         return Response({
