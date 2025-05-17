@@ -5,7 +5,7 @@ User = get_user_model()
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(style={'input_type': 'password'}, write_only=True)
+    password = serializers.CharField(style={'input_type': 'password'}, write_only=True,required=False)
     class Meta:
         model = User
         fields = ['last_name','first_name','phone_number','email','password']
@@ -14,13 +14,13 @@ class RegisterSerializer(serializers.ModelSerializer):
             'first_name': {'required': False},
             'phone_number': {'required': False},
             'email': {'required': False},
-            'password': {'required': False},
         }
 
     def create(self, validated_data):
-        password = validated_data.pop('password')
+        password = validated_data.pop('password', None)
         user = User(**validated_data)
-        user.set_password(password)
+        if password:
+            user.set_password(password)
         user.save()
         return user
 
