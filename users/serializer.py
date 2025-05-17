@@ -14,6 +14,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             'first_name': {'required': False},
             'phone_number': {'required': False},
             'email': {'required': False},
+            'password': {'required': False},
         }
 
     def create(self, validated_data):
