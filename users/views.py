@@ -131,16 +131,11 @@ class ResetPasswordCustomView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request):
-        user = request.user
-        password = request.data.get('password')
-
-        if not password:
-            return Response({'error': 'Password is required'}, status=status.HTTP_400_BAD_REQUEST)
-
-        user.set_password(password)
-        user.save()
-
-        return Response({'success': 'Password updated successfully'}, status=status.HTTP_200_OK)
+        serializer = RegisterSerializer(instance=request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'success': 'Password updated successfully'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 class VerifyOTPAndRegisterView(APIView):
     permission_classes = [AllowAny]
 
