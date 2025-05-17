@@ -8,70 +8,28 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 from users.serializer import RegisterSerializer, UserUpdateSerializer
 User = get_user_model()
 # Create your views here.
 
-# class CustomTokenObtainPairView(TokenObtainPairView):
-#     def post(self, request, *args, **kwargs):
-#         try:
-#             response = super().post(request, *args, **kwargs)
-#             tokens = response.data
-#             access_token = tokens['access']
-#             refresh_token = tokens['refresh']
-#             res = Response({'success': True})
-#             res.set_cookie(key='access_token', value=access_token, httponly=True, secure=True, samesite='None',
-#                            path='/')
-#             res.set_cookie(key='refresh_token', value=refresh_token, httponly=True, secure=True, samesite='None',
-#                            path='/')
-#             return res
-#         except Exception as e:
-#             return Response({'success': False}, status=400)
-#
-#
-# class CustomTokenRefreshView(TokenRefreshView):
-#     def post(self, request, *args, **kwargs):
-#         try:
-#             refresh_token = request.COOKIES.get('refresh_token')
-#             request.data['refresh'] = refresh_token
-#             response = super().post(request, *args, **kwargs)
-#             tokens = response.data
-#             access_token = tokens['access']
-#             res = Response({'refreshed': True})
-#             res.set_cookie(
-#                 key='access_token',
-#                 value=access_token,
-#                 httponly=True,
-#                 secure=True,
-#                 samesite='None',
-#                 path='/'
-#             )
-#             return res
-#         except:
-#             return Response({'success': False}, status=400)
 
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self,request):
+        try:
+            refresh_token = request.data.get("refresh_token")
 
+            if not refresh_token:
+                return Response({"error": "Refresh token is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def logout(request):
-    try:
-        refresh_token = request.data.get("refresh_token")
+            token = RefreshToken(refresh_token)
+            token.blacklist()
 
-        if not refresh_token:
-            return Response({"error": "Refresh token is required"}, status=400)
-
-        token = RefreshToken(refresh_token)
-        token.blacklist()
-
-        return Response({"success": True, "message": "Logged out successfully"}, status=200)
-    except Exception as e:
-        return Response({"error": str(e)}, status=400)
+            return Response({"success": True, "message": "Logged out successfully"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class RegisterView(APIView):
