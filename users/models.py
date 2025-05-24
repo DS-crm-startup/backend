@@ -15,6 +15,9 @@ class CustomUser(AbstractUser):
     email = models.EmailField(unique=True,max_length=100)
     address=models.TextField(null=True, blank=True)
     image = models.ImageField(upload_to="users/images/", null=True, blank=True)
+    balance=models.DecimalField(decimal_places=2, max_digits=20,default=0.00)
+    is_verified=models.BooleanField(default=False)
+    position=models.CharField(max_length=100,null=True, blank=True)
     created_at = models.DateField(auto_now_add=True, null=True, blank=True)
     updated_at = models.DateField(auto_now=True, null=True, blank=True)
     USERNAME_FIELD = 'phone_number'
